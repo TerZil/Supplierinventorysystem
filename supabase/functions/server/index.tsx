@@ -112,6 +112,67 @@ app.delete("/make-server-1f3aab97/suppliers/:id", async (c) => {
   }
 });
 
+// ── IMPORTANT: /products/search must be registered BEFORE /products/:supplierId
+// so Hono does not swallow "search" as a supplierId param.
+
+// Search products with full supplier info
+app.get("/make-server-1f3aab97/products/search", async (c) => {
+  try {
+    const query = c.req.query("q")?.toLowerCase() || "";
+
+    const allProducts = await kv.getByPrefix("product:");
+    const allSuppliers = await kv.getByPrefix("supplier:");
+    const allPurchases = await kv.getByPrefix("purchase:");
+
+    const supplierMap = new Map(allSuppliers.map((s: any) => [s.id, s]));
+
+    // Build a map of productId -> latest purchaseDate
+    const lastPurchaseDateMap = new Map<string, string>();
+    for (const purchase of allPurchases) {
+      if (!Array.isArray(purchase.items)) continue;
+      for (const item of purchase.items) {
+        const existing = lastPurchaseDateMap.get(item.productId);
+        if (!existing || new Date(purchase.purchaseDate) > new Date(existing)) {
+          lastPurchaseDateMap.set(item.productId, purchase.purchaseDate);
+        }
+      }
+    }
+
+    const filtered = (
+      query
+        ? allProducts.filter(
+            (p: any) =>
+              p.name?.toLowerCase().includes(query) ||
+              p.description?.toLowerCase().includes(query) ||
+              p.sku?.toLowerCase().includes(query)
+          )
+        : allProducts
+    ).map((p: any) => ({
+      ...p,
+      supplierName: supplierMap.get(p.supplierId)?.name || "Unknown Supplier",
+      supplier: supplierMap.get(p.supplierId) || null,
+      lastPurchaseDate: lastPurchaseDateMap.get(p.id) || null,
+    }));
+
+    // Group by supplierId so the frontend can render per-supplier sections
+    const grouped: Record<string, { supplier: any; products: any[] }> = {};
+    for (const product of filtered) {
+      if (!grouped[product.supplierId]) {
+        grouped[product.supplierId] = {
+          supplier: product.supplier,
+          products: [],
+        };
+      }
+      grouped[product.supplierId].products.push(product);
+    }
+
+    return c.json({ products: filtered, grouped: Object.values(grouped) });
+  } catch (error) {
+    console.log(`Error searching products: ${error}`);
+    return c.json({ error: "Failed to search products" }, 500);
+  }
+});
+
 // Get products for a supplier
 app.get("/make-server-1f3aab97/products/:supplierId", async (c) => {
   try {
@@ -221,6 +282,20 @@ app.get("/make-server-1f3aab97/purchases", async (c) => {
   }
 });
 
+// Get purchases for a specific supplier
+app.get("/make-server-1f3aab97/purchases/supplier/:supplierId", async (c) => {
+  try {
+    const supplierId = c.req.param("supplierId");
+    const allPurchases = await kv.getByPrefix("purchase:");
+    const purchases = allPurchases.filter((p: any) => p.supplierId === supplierId);
+    purchases.sort((a: any, b: any) => new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime());
+    return c.json({ purchases });
+  } catch (error) {
+    console.log(`Error fetching purchases for supplier: ${error}`);
+    return c.json({ error: "Failed to fetch supplier purchases" }, 500);
+  }
+});
+
 // Update purchase
 app.put("/make-server-1f3aab97/purchases/:id", async (c) => {
   try {
@@ -267,13 +342,13 @@ app.get("/make-server-1f3aab97/search", async (c) => {
     const allSuppliers = await kv.getByPrefix("supplier:");
     const allProducts = await kv.getByPrefix("product:");
 
-    const suppliers = allSuppliers.filter(s => 
-      s.name?.toLowerCase().includes(query) || 
+    const suppliers = allSuppliers.filter(s =>
+      s.name?.toLowerCase().includes(query) ||
       s.description?.toLowerCase().includes(query)
     );
 
-    const products = allProducts.filter(p => 
-      p.name?.toLowerCase().includes(query) || 
+    const products = allProducts.filter(p =>
+      p.name?.toLowerCase().includes(query) ||
       p.description?.toLowerCase().includes(query) ||
       p.sku?.toLowerCase().includes(query)
     );

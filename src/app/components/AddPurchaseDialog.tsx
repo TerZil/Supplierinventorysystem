@@ -4,7 +4,8 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
 interface Product {
   id: string;
@@ -32,16 +33,25 @@ interface AddPurchaseDialogProps {
   products: Product[];
   apiUrl: string;
   apiKey: string;
+  onSuccess?: (purchase: any) => void;
 }
 
-export function AddPurchaseDialog({ open, onOpenChange, supplier, products, apiUrl, apiKey }: AddPurchaseDialogProps) {
+export function AddPurchaseDialog({ open, onOpenChange, supplier, products, apiUrl, apiKey, onSuccess }: AddPurchaseDialogProps) {
   const [items, setItems] = useState<PurchaseItem[]>([]);
   const [notes, setNotes] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
 
   const addItem = () => {
     if (products.length === 0) {
-      alert("Please add products to this supplier first.");
+      toast.custom(() => (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl shadow-lg w-[340px]">
+          <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold text-sm">No Products Available</p>
+            <p className="text-xs text-red-600 mt-0.5">Please add products to this supplier first.</p>
+          </div>
+        </div>
+      ));
       return;
     }
     const firstProduct = products[0];
@@ -82,7 +92,15 @@ export function AddPurchaseDialog({ open, onOpenChange, supplier, products, apiU
     e.preventDefault();
     
     if (items.length === 0) {
-      alert("Please add at least one item to the purchase.");
+      toast.custom(() => (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl shadow-lg w-[340px]">
+          <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold text-sm">No Items Added</p>
+            <p className="text-xs text-red-600 mt-0.5">Please add at least one item to the purchase.</p>
+          </div>
+        </div>
+      ));
       return;
     }
 
@@ -104,15 +122,35 @@ export function AddPurchaseDialog({ open, onOpenChange, supplier, products, apiU
       });
 
       if (response.ok) {
+        const data = await response.json();
         setItems([]);
         setNotes("");
         setPurchaseDate(new Date().toISOString().split('T')[0]);
         onOpenChange(false);
-        alert("Purchase recorded successfully!");
+        if (onSuccess) onSuccess(data.purchase);
+        toast.custom(() => (
+          <div className="flex items-start gap-3 bg-green-700 text-white px-4 py-3 rounded-xl shadow-lg w-[340px] border border-green-600">
+            <CheckCircle2 className="h-5 w-5 text-green-200 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-semibold text-sm">Purchase Recorded!</p>
+              <p className="text-xs text-green-100 mt-0.5">
+                Purchase from <span className="font-medium text-white">{supplier.name}</span> has been saved successfully.
+              </p>
+            </div>
+          </div>
+        ));
       }
     } catch (error) {
       console.error("Error recording purchase:", error);
-      alert("Failed to record purchase. Please try again.");
+      toast.custom(() => (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl shadow-lg w-[340px]">
+          <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold text-sm">Failed to Record Purchase</p>
+            <p className="text-xs text-red-600 mt-0.5">Something went wrong. Please try again.</p>
+          </div>
+        </div>
+      ));
     }
   };
 
@@ -162,7 +200,7 @@ export function AddPurchaseDialog({ open, onOpenChange, supplier, products, apiU
                         >
                           {products.map((product) => (
                             <option key={product.id} value={product.id}>
-                              {product.name} - ${product.price.toFixed(2)}/{product.unit}
+                              {product.name} - ₱{product.price.toFixed(2)}/{product.unit}
                             </option>
                           ))}
                         </select>
@@ -170,8 +208,11 @@ export function AddPurchaseDialog({ open, onOpenChange, supplier, products, apiU
                           <Input
                             type="number"
                             min="1"
-                            value={item.quantity}
-                            onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value))}
+                            value={isNaN(item.quantity) ? "" : item.quantity}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              updateItem(index, "quantity", isNaN(val) ? 0 : val);
+                            }}
                             placeholder="Quantity"
                             required
                           />
@@ -179,14 +220,17 @@ export function AddPurchaseDialog({ open, onOpenChange, supplier, products, apiU
                             type="number"
                             step="0.01"
                             min="0"
-                            value={item.price}
-                            onChange={(e) => updateItem(index, "price", parseFloat(e.target.value))}
+                            value={isNaN(item.price) ? "" : item.price}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              updateItem(index, "price", isNaN(val) ? 0 : val);
+                            }}
                             placeholder="Price"
                             required
                           />
                         </div>
                         <div className="text-sm font-medium text-green-700">
-                          Subtotal: ${(item.quantity * item.price).toFixed(2)}
+                          Subtotal: ₱{(item.quantity * item.price).toFixed(2)}
                         </div>
                       </div>
                       <Button
@@ -218,7 +262,7 @@ export function AddPurchaseDialog({ open, onOpenChange, supplier, products, apiU
             <div className="pt-4 border-t">
               <div className="flex justify-between items-center text-lg font-bold">
                 <span>Total Amount:</span>
-                <span className="text-green-700">${totalAmount.toFixed(2)}</span>
+                <span className="text-green-700">₱{totalAmount.toFixed(2)}</span>
               </div>
             </div>
           </div>

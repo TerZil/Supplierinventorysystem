@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Calendar, DollarSign, Package, Edit, Trash2, Download } from "lucide-react";
+import { Input } from "./ui/input";
+import { Calendar, DollarSign, Package, Edit, Trash2, Download, Search, X, Star } from "lucide-react";
 import { EditPurchaseDialog } from "./EditPurchaseDialog";
 
 import { exportPurchaseHistoryPDF } from "../../utils/exportPdf";
@@ -34,6 +35,7 @@ export function PurchaseHistory({ apiUrl, apiKey }: PurchaseHistoryProps) {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
+  const [supplierSearch, setSupplierSearch] = useState("");
 
   useEffect(() => {
     loadPurchases();
@@ -115,25 +117,99 @@ export function PurchaseHistory({ apiUrl, apiKey }: PurchaseHistoryProps) {
     );
   }
 
+  const filteredPurchases = supplierSearch.trim()
+    ? purchases.filter((p) =>
+        p.supplierName.toLowerCase().includes(supplierSearch.trim().toLowerCase())
+      )
+    : purchases;
+
+  // Determine the ID of the latest purchase when a supplier is filtered
+  const latestPurchaseId =
+    supplierSearch.trim() && filteredPurchases.length > 0
+      ? filteredPurchases.reduce((latest, p) =>
+          new Date(p.purchaseDate) > new Date(latest.purchaseDate) ? p : latest
+        ).id
+      : null;
+
+  const exportTarget = supplierSearch.trim() ? filteredPurchases : purchases;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-2">
         <h2 className="text-2xl font-bold text-green-700">Purchase History</h2>
-        <Button 
-          onClick={() => exportPurchaseHistoryPDF(purchases)}
+        <Button
+          onClick={() => exportPurchaseHistoryPDF(exportTarget)}
           variant="outline"
-          className="bg-white"
+          className="bg-yellow-400 hover:bg-yellow-300 text-green-900 font-semibold border-yellow-400"
         >
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
-      {purchases.map((purchase) => (
-        <Card key={purchase.id} className="border-yellow-200">
+
+      {/* Supplier search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-600" />
+        <Input
+          type="search"
+          placeholder="Search by supplier name..."
+          className="pl-10 pr-10 bg-white border-green-200 focus:border-green-500 text-green-900 placeholder:text-green-400"
+          value={supplierSearch}
+          onChange={(e) => setSupplierSearch(e.target.value)}
+        />
+        {supplierSearch && (
+          <button
+            onClick={() => setSupplierSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 hover:text-green-700 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Result summary */}
+      {supplierSearch.trim() && (
+        <div className="flex items-center gap-2 text-sm">
+          {filteredPurchases.length > 0 ? (
+            <>
+              <span className="text-green-700 font-medium">
+                {filteredPurchases.length} purchase{filteredPurchases.length !== 1 ? "s" : ""} found
+              </span>
+              <span className="text-muted-foreground">for</span>
+              <Badge className="bg-green-100 text-green-800 border border-green-300">
+                {supplierSearch}
+              </Badge>
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              No purchases found for&nbsp;
+              <span className="font-medium text-green-700">"{supplierSearch}"</span>
+            </span>
+          )}
+        </div>
+      )}
+
+      {filteredPurchases.map((purchase) => (
+        <Card
+          key={purchase.id}
+          className={`border-yellow-200 transition-all ${
+            purchase.id === latestPurchaseId
+              ? "ring-2 ring-green-500 border-green-300 shadow-md"
+              : ""
+          }`}
+        >
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle className="text-lg">{purchase.supplierName}</CardTitle>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CardTitle className="text-lg">{purchase.supplierName}</CardTitle>
+                  {purchase.id === latestPurchaseId && (
+                    <Badge className="bg-green-600 text-white text-xs flex items-center gap-1">
+                      <Star className="h-3 w-3 fill-white" />
+                      Latest Purchase
+                    </Badge>
+                  )}
+                </div>
                 <CardDescription className="flex items-center gap-4 mt-2">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
@@ -141,13 +217,13 @@ export function PurchaseHistory({ apiUrl, apiKey }: PurchaseHistoryProps) {
                   </span>
                   <span className="flex items-center gap-1">
                     <Package className="h-4 w-4" />
-                    {purchase.items.length} item{purchase.items.length !== 1 ? 's' : ''}
+                    {purchase.items.length} item{purchase.items.length !== 1 ? "s" : ""}
                   </span>
                 </CardDescription>
               </div>
               <div className="flex items-start gap-2">
                 <div className="text-right mr-4">
-                  <div className="text-2xl font-bold text-green-700">${purchase.totalAmount.toFixed(2)}</div>
+                  <div className="text-2xl font-bold text-green-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-1">₱{purchase.totalAmount.toFixed(2)}</div>
                 </div>
                 <Button
                   variant="ghost"
@@ -177,8 +253,8 @@ export function PurchaseHistory({ apiUrl, apiKey }: PurchaseHistoryProps) {
                     <span className="text-muted-foreground ml-2">× {item.quantity}</span>
                   </div>
                   <div className="text-sm">
-                    <span className="text-muted-foreground">${item.price.toFixed(2)} each</span>
-                    <span className="ml-3 font-medium">${(item.quantity * item.price).toFixed(2)}</span>
+                    <span className="text-muted-foreground">₱{item.price.toFixed(2)} each</span>
+                    <span className="ml-3 font-medium">₱{(item.quantity * item.price).toFixed(2)}</span>
                   </div>
                 </div>
               ))}
@@ -192,7 +268,7 @@ export function PurchaseHistory({ apiUrl, apiKey }: PurchaseHistoryProps) {
           </CardContent>
         </Card>
       ))}
-      
+
       {editingPurchase && (
         <EditPurchaseDialog
           open={!!editingPurchase}

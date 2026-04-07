@@ -132,7 +132,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase, onUpdate }: E
                       />
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      Subtotal: ${(item.quantity * item.price).toFixed(2)}
+                      Subtotal: ₱{(item.quantity * item.price).toFixed(2)}
                     </div>
                   </div>
                   {formData.items.length > 1 && (
@@ -163,7 +163,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase, onUpdate }: E
 
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="text-lg font-semibold">
-              Total: <span className="text-green-700">${formData.totalAmount.toFixed(2)}</span>
+              Total: <span className="text-green-700">₱{formData.totalAmount.toFixed(2)}</span>
             </div>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

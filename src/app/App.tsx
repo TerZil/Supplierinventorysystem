@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, ShoppingCart, Package, Download } from "lucide-react";
+import { Search, Plus, ShoppingCart, Package, Download, FlaskConical } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
@@ -7,6 +7,7 @@ import { SupplierCard } from "./components/SupplierCard";
 import { SupplierDetail } from "./components/SupplierDetail";
 import { AddSupplierDialog } from "./components/AddSupplierDialog";
 import { PurchaseHistory } from "./components/PurchaseHistory";
+import { ProductSearch } from "./components/ProductSearch";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
 import {
   DropdownMenu,
@@ -15,6 +16,8 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { downloadMultiSupplierPurchaseTemplate, downloadBlankSupplierTemplate } from "./utils/downloadTemplates";
+import { Toaster } from "sonner";
+import { toast } from "sonner";
 
 interface Supplier {
   id: string;
@@ -98,6 +101,7 @@ export default function App() {
       if (response.ok) {
         setSuppliers([...suppliers, data.supplier]);
         setShowAddSupplier(false);
+        toast.success("Supplier successfully added!");
       }
     } catch (error) {
       console.error("Error adding supplier:", error);
@@ -150,17 +154,19 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-green-50 to-yellow-50">
-      <div className="bg-white border-b border-green-200 shadow-sm">
+      <div className="bg-green-700 border-b-4 border-yellow-400 shadow-md">
         <div className="max-w-7xl mx-auto px-8 py-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-4xl font-bold text-green-700">Wonderzyme</h1>
-              <p className="text-muted-foreground mt-1">Inventory Management System</p>
+              <h1 className="text-4xl font-bold text-white">
+                Wonder<span className="text-yellow-300">zyme</span>
+              </h1>
+              <p className="text-green-100 mt-1">Inventory Management System</p>
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="lg" className="bg-white">
+                  <Button variant="outline" size="lg" className="bg-white/10 text-white border-white/20 hover:bg-white/20 hover:text-white">
                     <Download className="h-5 w-5 mr-2" />
                     Download Templates
                   </Button>
@@ -177,7 +183,7 @@ export default function App() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button onClick={() => setShowAddSupplier(true)} size="lg" className="bg-green-600 hover:bg-green-700">
+              <Button onClick={() => setShowAddSupplier(true)} size="lg" className="bg-yellow-400 hover:bg-yellow-300 text-green-900 font-bold shadow-sm">
                 <Plus className="h-5 w-5 mr-2" />
                 Add Supplier
               </Button>
@@ -185,11 +191,11 @@ export default function App() {
           </div>
 
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-green-700" />
             <Input
               type="search"
               placeholder="Search suppliers and products..."
-              className="pl-10 bg-white border-green-200 focus:border-green-500"
+              className="pl-10 bg-white border-transparent focus:border-yellow-400 focus:ring-yellow-400 text-green-900 placeholder:text-green-700/50 shadow-inner"
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
             />
@@ -200,43 +206,21 @@ export default function App() {
       <div className="max-w-7xl mx-auto px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-white border border-green-200">
-            <TabsTrigger value="suppliers" className="data-[state=active]:bg-green-600 data-[state=active]:text-white">
+            <TabsTrigger value="suppliers" className="data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_0_#facc15]">
               <Package className="h-4 w-4 mr-2" />
               Suppliers
             </TabsTrigger>
-            <TabsTrigger value="purchases" className="data-[state=active]:bg-green-600 data-[state=active]:text-white">
+            <TabsTrigger value="products" className="data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_0_#facc15]">
+              <FlaskConical className="h-4 w-4 mr-2" />
+              Products
+            </TabsTrigger>
+            <TabsTrigger value="purchases" className="data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_0_#facc15]">
               <ShoppingCart className="h-4 w-4 mr-2" />
               Purchase History
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="suppliers" className="mt-6">
-            {searchResults && searchResults.products.length > 0 && (
-              <div className="mb-8">
-                <h2 className="text-xl font-semibold mb-4 text-green-700">Products Found</h2>
-                <div className="grid gap-4">
-                  {searchResults.products.map((product) => (
-                    <div
-                      key={product.id}
-                      className="p-4 bg-white border border-yellow-200 rounded-lg hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold text-lg">{product.name}</h3>
-                          <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
-                          {product.sku && <p className="text-sm text-muted-foreground mt-1">SKU: {product.sku}</p>}
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold text-green-700">${product.price.toFixed(2)}</div>
-                          <div className="text-sm text-muted-foreground">per {product.unit}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {loading ? (
               <div className="text-center py-12">
                 <div className="text-lg text-muted-foreground">Loading suppliers...</div>
@@ -261,9 +245,24 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="mb-4 text-sm text-muted-foreground">
-                  {searchQuery && `Found ${displaySuppliers.length} supplier(s)`}
-                  {!searchQuery && `${displaySuppliers.length} total supplier(s)`}
+                <div className="mb-4 text-sm text-muted-foreground flex items-center gap-2">
+                  {searchQuery && (
+                    <>
+                      <span>Found</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-semibold border border-yellow-300 text-xs">
+                        {displaySuppliers.length}
+                      </span>
+                      <span>supplier{displaySuppliers.length !== 1 ? "s" : ""}</span>
+                    </>
+                  )}
+                  {!searchQuery && (
+                    <>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-semibold border border-yellow-300 text-xs">
+                        {displaySuppliers.length}
+                      </span>
+                      <span>total supplier{displaySuppliers.length !== 1 ? "s" : ""}</span>
+                    </>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {displaySuppliers.map((supplier) => (
@@ -278,6 +277,14 @@ export default function App() {
             )}
           </TabsContent>
 
+          <TabsContent value="products" className="mt-6">
+            <ProductSearch
+              apiUrl={apiUrl}
+              apiKey={apiKey}
+              onViewSupplier={(supplier) => setSelectedSupplier(supplier)}
+            />
+          </TabsContent>
+
           <TabsContent value="purchases" className="mt-6">
             <PurchaseHistory apiUrl={apiUrl} apiKey={apiKey} />
           </TabsContent>
@@ -290,6 +297,7 @@ export default function App() {
         onAdd={handleAddSupplier}
       />
 
+      <Toaster position="bottom-right" richColors />
     </div>
   );
 }
