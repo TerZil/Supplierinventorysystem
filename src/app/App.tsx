@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, ShoppingCart, Package, Download, FlaskConical } from "lucide-react";
+import { Search, Plus, ShoppingCart, Package, Download, FlaskConical, LayoutDashboard, RotateCcw, LogOut, User } from "lucide-react";
+import { supabase } from "./lib/supabaseClient";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
@@ -8,6 +9,11 @@ import { SupplierDetail } from "./components/SupplierDetail";
 import { AddSupplierDialog } from "./components/AddSupplierDialog";
 import { PurchaseHistory } from "./components/PurchaseHistory";
 import { ProductSearch } from "./components/ProductSearch";
+import { Dashboard } from "./components/Dashboard";
+import { RecentlyDeletedDialog } from "./components/RecentlyDeletedDialog";
+import { PaymentNoticesBanner } from "./components/PaymentNoticesBanner";
+import { StorageIndicator } from "./components/StorageIndicator";
+import { LoginPage } from "./components/LoginPage";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
 import {
   DropdownMenu,
@@ -39,20 +45,39 @@ interface Product {
 }
 
 export default function App() {
+  const [session, setSession] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchResults, setSearchResults] = useState<{ suppliers: Supplier[]; products: Product[] } | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [showAddSupplier, setShowAddSupplier] = useState(false);
+  const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false);
+  const [deletedCount, setDeletedCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("suppliers");
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   const apiUrl = `https://${projectId}.supabase.co/functions/v1/make-server-1f3aab97`;
   const apiKey = publicAnonKey;
 
+  // ── Auth bootstrap ─────────────────────────────────────────────
   useEffect(() => {
-    loadSuppliers();
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+    });
+    return () => listener.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (session) {
+      loadSuppliers();
+      loadDeletedCount();
+    }
+  }, [session]);
 
   const loadSuppliers = async () => {
     try {
@@ -69,8 +94,25 @@ export default function App() {
     }
   };
 
+  const loadDeletedCount = async () => {
+    try {
+      const res = await fetch(`${apiUrl}/suppliers/deleted`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      const data = await res.json();
+      setDeletedCount((data.suppliers || []).length);
+    } catch (err) {
+      console.error("Error loading deleted count:", err);
+    }
+  };
+
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
+
+    // Only call the unified /search endpoint on the Suppliers tab.
+    // Products and Purchases tabs handle their own search via props.
+    if (activeTab !== "suppliers") return;
+
     if (!query.trim()) {
       setSearchResults(null);
       return;
@@ -80,6 +122,10 @@ export default function App() {
       const response = await fetch(`${apiUrl}/search?q=${encodeURIComponent(query)}`, {
         headers: { Authorization: `Bearer ${apiKey}` },
       });
+      if (!response.ok) {
+        console.error("Search request failed:", response.status, response.statusText);
+        return;
+      }
       const data = await response.json();
       setSearchResults(data);
     } catch (error) {
@@ -131,13 +177,41 @@ export default function App() {
   const handleDeleteSupplier = (supplierId: string) => {
     setSuppliers(suppliers.filter((s) => s.id !== supplierId));
     setSelectedSupplier(null);
+    loadDeletedCount();
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    toast.success("You have been signed out.");
   };
 
   const displaySuppliers = searchResults ? searchResults.suppliers : suppliers;
 
+  // ── Auth gate ──────────────────────────────────────────────────
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#FDF8F0] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <FlaskConical className="h-10 w-10 text-green-900 animate-pulse" />
+          <p className="text-green-800 font-semibold text-lg">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <>
+        <LoginPage onLogin={(s) => setSession(s)} apiUrl={apiUrl} apiKey={apiKey} />
+        <Toaster position="bottom-right" richColors />
+      </>
+    );
+  }
+
   if (selectedSupplier) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-white via-green-50 to-yellow-50 p-8">
+      <div className="min-h-screen bg-[#FDF8F0] p-8">
         <div className="max-w-6xl mx-auto">
           <SupplierDetail
             supplier={selectedSupplier}
@@ -152,21 +226,35 @@ export default function App() {
     );
   }
 
+  const placeholderByTab: Record<string, string> = {
+    suppliers: "Search suppliers by name or description…",
+    products: "Search products by name, SKU, description, or supplier name…",
+    purchases: "Filter purchase history by supplier or product name…",
+  };
+
+  const showSearch = activeTab !== "dashboard";
+
+  // derive user display info
+  const userName = session?.user?.user_metadata?.name || session?.user?.email?.split("@")[0] || "User";
+  const userEmail = session?.user?.email || "";
+  const userInitial = userName.charAt(0).toUpperCase();
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-green-50 to-yellow-50">
-      <div className="bg-green-700 border-b-4 border-yellow-400 shadow-md">
+    <div className="min-h-screen bg-[#FDF8F0]">
+      <div className="bg-green-950 border-b-4 border-amber-500 shadow-lg">
         <div className="max-w-7xl mx-auto px-8 py-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
               <h1 className="text-4xl font-bold text-white">
-                Wonder<span className="text-yellow-300">zyme</span>
+                Wonder<span className="text-amber-400">zyme</span>
               </h1>
-              <p className="text-green-100 mt-1">Inventory Management System</p>
+              <p className="text-green-200 mt-1 text-base">Inventory Management System</p>
             </div>
             <div className="flex flex-wrap items-center gap-4">
+              <StorageIndicator apiUrl={apiUrl} apiKey={apiKey} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="lg" className="bg-white/10 text-white border-white/20 hover:bg-white/20 hover:text-white">
+                  <Button variant="outline" size="lg" className="bg-white/10 text-white border-white/30 hover:bg-white/20 hover:text-white text-base">
                     <Download className="h-5 w-5 mr-2" />
                     Download Templates
                   </Button>
@@ -183,44 +271,119 @@ export default function App() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button onClick={() => setShowAddSupplier(true)} size="lg" className="bg-yellow-400 hover:bg-yellow-300 text-green-900 font-bold shadow-sm">
+              <Button onClick={() => setShowAddSupplier(true)} size="lg" className="bg-amber-500 hover:bg-amber-400 text-white font-bold shadow-sm text-base">
                 <Plus className="h-5 w-5 mr-2" />
                 Add Supplier
               </Button>
+              {/* User menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl px-3 py-2 transition-colors"
+                    title={userEmail}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      {userInitial}
+                    </div>
+                    <span className="text-white text-sm font-medium hidden sm:block max-w-[120px] truncate">
+                      {userName}
+                    </span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <div className="px-3 py-2 border-b border-gray-100">
+                    <p className="text-sm font-semibold text-green-900 truncate">{userName}</p>
+                    <p className="text-xs text-gray-500 truncate">{userEmail}</p>
+                  </div>
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="text-red-600 focus:text-red-600 focus:bg-red-50 gap-2 cursor-pointer mt-1"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-green-700" />
-            <Input
-              type="search"
-              placeholder="Search suppliers and products..."
-              className="pl-10 bg-white border-transparent focus:border-yellow-400 focus:ring-yellow-400 text-green-900 placeholder:text-green-700/50 shadow-inner"
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-            />
-          </div>
+          {showSearch && (
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-green-800" />
+              <Input
+                type="search"
+                placeholder={placeholderByTab[activeTab] ?? "Search…"}
+                className="pl-12 h-13 text-base bg-white border-transparent focus:border-amber-500 focus:ring-amber-500 text-green-950 placeholder:text-green-700/60 shadow-inner rounded-xl"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+              />
+            </div>
+          )}
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-8 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-white border border-green-200">
-            <TabsTrigger value="suppliers" className="data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_0_#facc15]">
-              <Package className="h-4 w-4 mr-2" />
-              Suppliers
-            </TabsTrigger>
-            <TabsTrigger value="products" className="data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_0_#facc15]">
-              <FlaskConical className="h-4 w-4 mr-2" />
-              Products
-            </TabsTrigger>
-            <TabsTrigger value="purchases" className="data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_0_#facc15]">
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Purchase History
-            </TabsTrigger>
-          </TabsList>
+        <PaymentNoticesBanner apiUrl={apiUrl} apiKey={apiKey} />
+        <Tabs value={activeTab} onValueChange={(tab) => { setActiveTab(tab); setSearchQuery(""); setSearchResults(null); }}>
+          <div className="flex justify-end mb-6">
+            <TabsList className="bg-white border border-amber-200 shadow-sm">
+              <TabsTrigger value="dashboard" className="data-[state=active]:bg-green-900 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_0_#f59e0b] text-base px-4">
+                <LayoutDashboard className="h-4 w-4 mr-2" />
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="suppliers" className="data-[state=active]:bg-green-900 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_0_#f59e0b] text-base px-4">
+                <Package className="h-4 w-4 mr-2" />
+                Suppliers
+              </TabsTrigger>
+              <TabsTrigger value="products" className="data-[state=active]:bg-green-900 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_0_#f59e0b] text-base px-4">
+                <FlaskConical className="h-4 w-4 mr-2" />
+                Products
+              </TabsTrigger>
+              <TabsTrigger value="purchases" className="data-[state=active]:bg-green-900 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_0_#f59e0b] text-base px-4">
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Purchase History
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="dashboard" className="mt-6">
+            <Dashboard
+              apiUrl={apiUrl}
+              apiKey={apiKey}
+              onNavigate={(tab) => { setActiveTab(tab); setSearchQuery(""); setSearchResults(null); }}
+            />
+          </TabsContent>
 
           <TabsContent value="suppliers" className="mt-6">
+            {/* Suppliers tab toolbar */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="text-sm text-muted-foreground">
+                {!loading && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold border border-amber-300 text-xs">
+                      {displaySuppliers.length}
+                    </span>
+                    total supplier{displaySuppliers.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-red-300 text-red-800 hover:bg-red-50 hover:border-red-400 gap-2 font-semibold"
+                onClick={() => setShowRecentlyDeleted(true)}
+              >
+                <RotateCcw className="h-4 w-4" />
+                Recently Deleted
+                {deletedCount > 0 && (
+                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-red-700 text-white text-xs font-bold">
+                    {deletedCount}
+                  </span>
+                )}
+              </Button>
+            </div>
+
             {loading ? (
               <div className="text-center py-12">
                 <div className="text-lg text-muted-foreground">Loading suppliers...</div>
@@ -237,7 +400,7 @@ export default function App() {
                     : "Get started by adding your first supplier"}
                 </p>
                 {!searchQuery && (
-                  <Button onClick={() => setShowAddSupplier(true)} className="bg-green-600 hover:bg-green-700">
+                  <Button onClick={() => setShowAddSupplier(true)} className="bg-green-900 hover:bg-green-800 text-white font-bold">
                     <Plus className="h-5 w-5 mr-2" />
                     Add Your First Supplier
                   </Button>
@@ -245,25 +408,6 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="mb-4 text-sm text-muted-foreground flex items-center gap-2">
-                  {searchQuery && (
-                    <>
-                      <span>Found</span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-semibold border border-yellow-300 text-xs">
-                        {displaySuppliers.length}
-                      </span>
-                      <span>supplier{displaySuppliers.length !== 1 ? "s" : ""}</span>
-                    </>
-                  )}
-                  {!searchQuery && (
-                    <>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-semibold border border-yellow-300 text-xs">
-                        {displaySuppliers.length}
-                      </span>
-                      <span>total supplier{displaySuppliers.length !== 1 ? "s" : ""}</span>
-                    </>
-                  )}
-                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {displaySuppliers.map((supplier) => (
                     <SupplierCard
@@ -282,11 +426,12 @@ export default function App() {
               apiUrl={apiUrl}
               apiKey={apiKey}
               onViewSupplier={(supplier) => setSelectedSupplier(supplier)}
+              query={searchQuery}
             />
           </TabsContent>
 
           <TabsContent value="purchases" className="mt-6">
-            <PurchaseHistory apiUrl={apiUrl} apiKey={apiKey} />
+            <PurchaseHistory apiUrl={apiUrl} apiKey={apiKey} supplierSearch={searchQuery} />
           </TabsContent>
         </Tabs>
       </div>
@@ -295,6 +440,14 @@ export default function App() {
         open={showAddSupplier}
         onOpenChange={setShowAddSupplier}
         onAdd={handleAddSupplier}
+      />
+
+      <RecentlyDeletedDialog
+        open={showRecentlyDeleted}
+        onOpenChange={setShowRecentlyDeleted}
+        apiUrl={apiUrl}
+        apiKey={apiKey}
+        onRestored={() => { loadSuppliers(); loadDeletedCount(); }}
       />
 
       <Toaster position="bottom-right" richColors />

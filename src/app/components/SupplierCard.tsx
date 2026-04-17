@@ -19,18 +19,18 @@ interface SupplierCardProps {
 export function SupplierCard({ supplier, onViewDetails }: SupplierCardProps) {
   return (
     <Card
-      className="hover:shadow-lg transition-all cursor-pointer border-green-200 border-t-4 border-t-yellow-400 group"
+      className="hover:shadow-lg transition-all cursor-pointer border-2 border-green-200 border-t-4 border-t-amber-500 group"
       onClick={() => onViewDetails(supplier)}
     >
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-yellow-100 p-3 rounded-lg border border-yellow-200 group-hover:bg-yellow-200 transition-colors">
-              <Building2 className="h-6 w-6 text-yellow-600" />
+            <div className="bg-amber-100 p-3 rounded-lg border border-amber-200 group-hover:bg-amber-200 transition-colors">
+              <Building2 className="h-6 w-6 text-amber-700" />
             </div>
             <div>
-              <CardTitle className="text-lg">{supplier.name}</CardTitle>
-              <CardDescription className="line-clamp-1">{supplier.description}</CardDescription>
+              <CardTitle className="text-lg font-bold text-gray-900">{supplier.name}</CardTitle>
+              <CardDescription className="line-clamp-1 text-muted-foreground">{supplier.description}</CardDescription>
             </div>
           </div>
         </div>
@@ -39,25 +39,25 @@ export function SupplierCard({ supplier, onViewDetails }: SupplierCardProps) {
         <div className="space-y-2 text-sm">
           {supplier.contactEmail && (
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Mail className="h-4 w-4 text-yellow-500" />
-              <span className="truncate">{supplier.contactEmail}</span>
+              <Mail className="h-4 w-4 text-amber-600 shrink-0" />
+              <span className="truncate font-medium">{supplier.contactEmail}</span>
             </div>
           )}
           {supplier.contactPhone && (
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Phone className="h-4 w-4 text-yellow-500" />
-              <span>{supplier.contactPhone}</span>
+              <Phone className="h-4 w-4 text-amber-600 shrink-0" />
+              <span className="font-medium">{supplier.contactPhone}</span>
             </div>
           )}
           {supplier.address && (
             <div className="flex items-center gap-2 text-muted-foreground">
-              <MapPin className="h-4 w-4 text-yellow-500" />
-              <span className="truncate">{supplier.address}</span>
+              <MapPin className="h-4 w-4 text-amber-600 shrink-0" />
+              <span className="truncate font-medium">{supplier.address}</span>
             </div>
           )}
         </div>
         <Button
-          className="w-full mt-4 bg-green-600 hover:bg-green-700 group-hover:bg-yellow-400 group-hover:text-green-900 transition-colors font-semibold"
+          className="w-full mt-4 bg-green-900 hover:bg-green-800 group-hover:bg-amber-500 group-hover:text-white transition-colors font-bold"
           onClick={(e) => {
             e.stopPropagation();
             onViewDetails(supplier);

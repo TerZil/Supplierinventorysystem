@@ -209,18 +209,22 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
   };
 
   const handleDeleteSupplier = async () => {
-    if (!confirm("Are you sure you want to delete this supplier? This will also delete all associated products.")) return;
+    if (!confirm("Are you sure you want to delete this supplier? They will be moved to Recently Deleted and can be restored within 30 days.")) return;
     try {
       const response = await fetch(`${apiUrl}/suppliers/${supplier.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${apiKey}` },
       });
       if (response.ok) {
+        toast.success(`"${supplier.name}" moved to Recently Deleted.`, {
+          description: "You can restore it within 30 days from the Suppliers tab.",
+        });
         if (onDelete) onDelete(supplier.id);
         onBack();
       }
     } catch (error) {
       console.error("Error deleting supplier:", error);
+      toast.error("Failed to delete supplier.");
     }
   };
 
@@ -231,18 +235,18 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center gap-4">
         <div className="flex items-center gap-4 flex-1">
-          <Button variant="outline" onClick={onBack} size="icon" className="border-yellow-300 hover:bg-yellow-50">
+          <Button variant="outline" onClick={onBack} size="icon" className="border-amber-300 hover:bg-amber-50">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-green-700">{supplier.name}</h1>
-            <div className="h-1 w-16 bg-yellow-400 rounded-full mt-1" />
+            <h1 className="text-3xl font-bold text-green-900">{supplier.name}</h1>
+            <div className="h-1 w-16 bg-amber-500 rounded-full mt-1" />
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="bg-white">
+              <Button variant="outline" className="bg-white font-semibold">
                 <Download className="h-4 w-4 mr-2" />
                 Export Options
               </Button>
@@ -265,7 +269,7 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
           <Button
             variant={isEditing ? "default" : "outline"}
             onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-            className={isEditing ? "bg-green-600 hover:bg-green-700" : ""}
+            className={isEditing ? "bg-green-900 hover:bg-green-800 font-bold" : "font-semibold"}
           >
             <Edit className="h-4 w-4 mr-2" />
             {isEditing ? "Save Changes" : "Edit Supplier"}
@@ -274,7 +278,7 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
       </div>
 
       {/* Supplier Info */}
-      <Card className="border-green-200">
+      <Card className="border-green-200 border-2">
         <CardHeader>
           <CardTitle>Supplier Information</CardTitle>
         </CardHeader>
@@ -307,30 +311,30 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
           ) : (
             <div className="space-y-3">
               <div className="flex items-start gap-3">
-                <Building2 className="h-5 w-5 text-green-600 mt-0.5" />
+                <Building2 className="h-5 w-5 text-green-800 mt-0.5" />
                 <div>
-                  <div className="font-medium">Description</div>
+                  <div className="font-bold text-gray-900">Description</div>
                   <div className="text-muted-foreground">{supplier.description || "No description"}</div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Mail className="h-5 w-5 text-green-600" />
+                <Mail className="h-5 w-5 text-green-800" />
                 <div>
-                  <div className="font-medium">Email</div>
+                  <div className="font-bold text-gray-900">Email</div>
                   <div className="text-muted-foreground">{supplier.contactEmail || "Not provided"}</div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Phone className="h-5 w-5 text-green-600" />
+                <Phone className="h-5 w-5 text-green-800" />
                 <div>
-                  <div className="font-medium">Phone</div>
+                  <div className="font-bold text-gray-900">Phone</div>
                   <div className="text-muted-foreground">{supplier.contactPhone || "Not provided"}</div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <MapPin className="h-5 w-5 text-green-600" />
+                <MapPin className="h-5 w-5 text-green-800" />
                 <div>
-                  <div className="font-medium">Address</div>
+                  <div className="font-bold text-gray-900">Address</div>
                   <div className="text-muted-foreground">{supplier.address || "Not provided"}</div>
                 </div>
               </div>
@@ -340,14 +344,14 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
       </Card>
 
       {/* Products */}
-      <Card className="border-yellow-200">
+      <Card className="border-amber-300 border-2">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Products & Pricing</CardTitle>
+              <CardTitle>Products &amp; Pricing</CardTitle>
               <CardDescription>Manage products from this supplier</CardDescription>
             </div>
-            <Button onClick={() => setShowAddProduct(true)} className="bg-yellow-500 hover:bg-yellow-600 text-black">
+            <Button onClick={() => setShowAddProduct(true)} className="bg-amber-500 hover:bg-amber-400 text-white font-bold">
               <Plus className="h-4 w-4 mr-2" />
               Add Product
             </Button>
@@ -365,7 +369,7 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
                 <Input
                   type="search"
                   placeholder="Search products by name, description, or SKU..."
-                  className="pl-10 bg-white border-yellow-200 focus:border-yellow-500"
+                  className="pl-10 bg-white border-amber-200 focus:border-amber-500"
                   value={productSearchQuery}
                   onChange={(e) => setProductSearchQuery(e.target.value)}
                 />
@@ -382,19 +386,19 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
                     );
                   })
                   .map((product) => (
-                    <div key={product.id} className="flex items-start justify-between p-4 border rounded-lg hover:bg-yellow-50 transition-colors">
+                    <div key={product.id} className="flex items-start justify-between p-4 border-2 border-amber-100 rounded-lg hover:bg-amber-50 transition-colors">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-semibold">{product.name}</h4>
-                          {product.sku && <Badge variant="outline">{product.sku}</Badge>}
+                          <h4 className="font-bold text-gray-900">{product.name}</h4>
+                          {product.sku && <Badge variant="outline" className="border-amber-300 text-amber-800">{product.sku}</Badge>}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
                         <div className="mt-2 flex items-center gap-4 text-sm">
-                          <span className="font-medium text-green-700">₱{product.price.toFixed(2)}</span>
+                          <span className="font-bold text-green-900">₱{product.price.toFixed(2)}</span>
                           <span className="text-muted-foreground">per {product.unit}</span>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(product.id)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(product.id)} className="text-red-700 hover:text-red-800 hover:bg-red-50">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -415,22 +419,22 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
       </Card>
 
       {/* Purchase History */}
-      <Card className="border-green-200 border-t-4 border-t-yellow-400">
+      <Card className="border-green-300 border-2 border-t-4 border-t-amber-500">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <ShoppingCart className="h-5 w-5 text-green-600" />
+                <ShoppingCart className="h-5 w-5 text-green-800" />
                 Purchase History
               </CardTitle>
               <CardDescription>
                 {purchases.length > 0 ? (
                   <span className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-semibold border border-yellow-300 text-xs">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold border border-amber-300 text-xs">
                       {purchases.length} purchase{purchases.length !== 1 ? "s" : ""}
                     </span>
                     <span>·</span>
-                    <span>Total spend: <strong className="text-green-700">₱{totalSpend.toFixed(2)}</strong></span>
+                    <span>Total spend: <strong className="text-green-900">₱{totalSpend.toFixed(2)}</strong></span>
                   </span>
                 ) : "No purchases recorded yet"}
               </CardDescription>
@@ -441,12 +445,12 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
                 size="sm"
                 onClick={() => exportSupplierPurchaseHistoryPDF(supplier, purchases)}
                 disabled={purchases.length === 0}
-                className="bg-yellow-400 hover:bg-yellow-300 text-green-900 font-semibold border-yellow-400 disabled:opacity-40"
+                className="bg-amber-500 hover:bg-amber-400 text-white font-bold border-amber-500 disabled:opacity-40"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export PDF
               </Button>
-              <Button onClick={() => setShowAddPurchase(true)} className="bg-green-600 hover:bg-green-700">
+              <Button onClick={() => setShowAddPurchase(true)} className="bg-green-900 hover:bg-green-800 text-white font-bold">
                 <Plus className="h-4 w-4 mr-2" />
                 Record Purchase
               </Button>
@@ -460,7 +464,7 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
             <div className="text-center py-10">
               <ShoppingCart className="h-10 w-10 text-green-200 mx-auto mb-3" />
               <p className="text-muted-foreground text-sm">No purchases have been recorded for this supplier yet.</p>
-              <Button onClick={() => setShowAddPurchase(true)} className="mt-4 bg-green-600 hover:bg-green-700" size="sm">
+              <Button onClick={() => setShowAddPurchase(true)} className="mt-4 bg-green-900 hover:bg-green-800 text-white font-bold" size="sm">
                 <Plus className="h-4 w-4 mr-2" />
                 Record First Purchase
               </Button>
@@ -470,35 +474,35 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
               {purchases.map((purchase, index) => (
                 <div
                   key={purchase.id}
-                  className={`rounded-lg border p-4 transition-colors ${
+                  className={`rounded-lg border-2 p-4 transition-colors ${
                     index === 0
-                      ? "border-green-300 bg-green-50 ring-1 ring-green-300"
+                      ? "border-green-400 bg-green-50 ring-1 ring-green-400"
                       : "border-gray-200 bg-white hover:bg-gray-50"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1 text-sm text-muted-foreground font-medium">
                           <Calendar className="h-3.5 w-3.5" />
                           {formatDate(purchase.purchaseDate)}
                         </span>
-                        <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1 text-sm text-muted-foreground font-medium">
                           <Package className="h-3.5 w-3.5" />
                           {purchase.items.length} item{purchase.items.length !== 1 ? "s" : ""}
                         </span>
                         {index === 0 && (
-                          <Badge className="bg-green-600 text-white text-xs">Latest</Badge>
+                          <Badge className="bg-green-800 text-white text-xs">Latest</Badge>
                         )}
                       </div>
                       <div className="mt-2 space-y-1">
                         {purchase.items.map((item, i) => (
                           <div key={i} className="flex items-center justify-between text-sm">
-                            <span className="text-gray-700">
+                            <span className="text-gray-800 font-medium">
                               {item.productName}
                               <span className="text-muted-foreground ml-1">× {item.quantity}</span>
                             </span>
-                            <span className="font-medium text-green-700">
+                            <span className="font-bold text-green-900">
                               ₱{(item.quantity * item.price).toFixed(2)}
                             </span>
                           </div>
@@ -510,13 +514,13 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
                     </div>
                     <div className="flex items-start gap-1 shrink-0">
                       <div className="text-right mr-2">
-                        <div className="text-lg font-bold text-green-700 bg-yellow-50 border border-yellow-200 rounded-lg px-2 py-0.5">₱{purchase.totalAmount.toFixed(2)}</div>
+                        <div className="text-lg font-bold text-green-900 bg-amber-50 border border-amber-300 rounded-lg px-2 py-0.5">₱{purchase.totalAmount.toFixed(2)}</div>
                       </div>
                       <Button variant="ghost" size="icon" onClick={() => setEditingPurchase(purchase)} className="hover:bg-green-100 h-8 w-8">
-                        <Edit className="h-3.5 w-3.5 text-green-600" />
+                        <Edit className="h-3.5 w-3.5 text-green-800" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleDeletePurchase(purchase.id)} className="hover:bg-red-50 h-8 w-8">
-                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        <Trash2 className="h-3.5 w-3.5 text-red-700" />
                       </Button>
                     </div>
                   </div>
@@ -530,13 +534,15 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
       {/* Danger Zone */}
       {onDelete && (
         <div className="border-t pt-6">
-          <Card className="border-red-200 bg-red-50">
+          <Card className="border-red-300 border-2 bg-red-50">
             <CardHeader>
-              <CardTitle className="text-red-900">Danger Zone</CardTitle>
-              <CardDescription>Permanently delete this supplier and all associated data</CardDescription>
+              <CardTitle className="text-red-900 font-bold">Danger Zone</CardTitle>
+              <CardDescription className="text-red-700">
+                Delete this supplier — they'll be moved to <strong>Recently Deleted</strong> and can be restored within 30 days.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={handleDeleteSupplier} variant="destructive" className="bg-red-600 hover:bg-red-700">
+              <Button onClick={handleDeleteSupplier} variant="destructive" className="bg-red-700 hover:bg-red-800 font-bold text-base">
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete Supplier
               </Button>
