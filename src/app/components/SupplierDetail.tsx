@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Building2, Mail, Phone, MapPin, ArrowLeft, Edit, Plus, Trash2, Search, Download, Calendar, Package, ShoppingCart } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, ArrowLeft, Edit, Plus, Trash2, Search, Download, Calendar, Package, ShoppingCart, Check, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Input } from "./ui/input";
@@ -77,6 +77,9 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
   const [purchasesLoading, setPurchasesLoading] = useState(true);
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
   const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editingProductForm, setEditingProductForm] = useState<{ name: string; description: string; sku: string; unit: string }>({ name: "", description: "", sku: "", unit: "" });
+  const [savingProduct, setSavingProduct] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -158,6 +161,53 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
       }
     } catch (error) {
       console.error("Error deleting product:", error);
+    }
+  };
+
+  const startEditingProduct = (product: Product) => {
+    setEditingProductId(product.id);
+    setEditingProductForm({
+      name: product.name,
+      description: product.description || "",
+      sku: product.sku || "",
+      unit: product.unit || "unit",
+    });
+  };
+
+  const cancelEditingProduct = () => {
+    setEditingProductId(null);
+  };
+
+  const handleSaveProduct = async (productId: string) => {
+    if (!editingProductForm.name.trim()) {
+      toast.error("Product name cannot be empty.");
+      return;
+    }
+    setSavingProduct(true);
+    try {
+      const response = await fetch(`${apiUrl}/products/${supplier.id}/${productId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          name: editingProductForm.name.trim(),
+          description: editingProductForm.description.trim(),
+          sku: editingProductForm.sku.trim(),
+          unit: editingProductForm.unit.trim() || "unit",
+        }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setProducts((prev) => prev.map((p) => (p.id === productId ? data.product : p)));
+        setEditingProductId(null);
+        toast.success("Product updated successfully!");
+      } else {
+        toast.error(`Failed to update product: ${data.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error updating product:", error);
+      toast.error("Failed to update product. Please try again.");
+    } finally {
+      setSavingProduct(false);
     }
   };
 
@@ -385,24 +435,124 @@ export function SupplierDetail({ supplier, onBack, onUpdate, onDelete, apiUrl, a
                       product.sku?.toLowerCase().includes(query)
                     );
                   })
-                  .map((product) => (
-                    <div key={product.id} className="flex items-start justify-between p-4 border-2 border-amber-100 rounded-lg hover:bg-amber-50 transition-colors">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-gray-900">{product.name}</h4>
-                          {product.sku && <Badge variant="outline" className="border-amber-300 text-amber-800">{product.sku}</Badge>}
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
-                        <div className="mt-2 flex items-center gap-4 text-sm">
-                          <span className="font-bold text-green-900">₱{product.price.toFixed(2)}</span>
-                          <span className="text-muted-foreground">per {product.unit}</span>
-                        </div>
+                  .map((product) => {
+                    const isEditingThis = editingProductId === product.id;
+                    return (
+                      <div key={product.id} className={`border-2 rounded-lg transition-colors ${isEditingThis ? "border-green-400 bg-green-50" : "border-amber-100 hover:bg-amber-50"}`}>
+                        {isEditingThis ? (
+                          /* ── Inline edit form ── */
+                          <div className="p-4 space-y-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label htmlFor={`pname-${product.id}`} className="text-xs font-semibold text-green-900">Product Name *</Label>
+                                <Input
+                                  id={`pname-${product.id}`}
+                                  value={editingProductForm.name}
+                                  onChange={(e) => setEditingProductForm((f) => ({ ...f, name: e.target.value }))}
+                                  className="border-green-300 focus:border-green-500 text-sm"
+                                  placeholder="Product name"
+                                  autoFocus
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label htmlFor={`psku-${product.id}`} className="text-xs font-semibold text-green-900">SKU</Label>
+                                <Input
+                                  id={`psku-${product.id}`}
+                                  value={editingProductForm.sku}
+                                  onChange={(e) => setEditingProductForm((f) => ({ ...f, sku: e.target.value }))}
+                                  className="border-green-300 focus:border-green-500 text-sm"
+                                  placeholder="SKU (optional)"
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label htmlFor={`pdesc-${product.id}`} className="text-xs font-semibold text-green-900">Description</Label>
+                                <Input
+                                  id={`pdesc-${product.id}`}
+                                  value={editingProductForm.description}
+                                  onChange={(e) => setEditingProductForm((f) => ({ ...f, description: e.target.value }))}
+                                  className="border-green-300 focus:border-green-500 text-sm"
+                                  placeholder="Description (optional)"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label htmlFor={`punit-${product.id}`} className="text-xs font-semibold text-green-900">Unit</Label>
+                                <Input
+                                  id={`punit-${product.id}`}
+                                  value={editingProductForm.unit}
+                                  onChange={(e) => setEditingProductForm((f) => ({ ...f, unit: e.target.value }))}
+                                  className="border-green-300 focus:border-green-500 text-sm"
+                                  placeholder="e.g. kg, box, unit"
+                                />
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground italic">
+                              Price is managed separately via "Update Price".
+                            </p>
+                            <div className="flex items-center gap-2 pt-1">
+                              <Button
+                                size="sm"
+                                className="bg-green-700 hover:bg-green-600 text-white font-bold gap-1.5"
+                                onClick={() => handleSaveProduct(product.id)}
+                                disabled={savingProduct}
+                              >
+                                {savingProduct
+                                  ? <span className="h-3.5 w-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                  : <Check className="h-3.5 w-3.5" />}
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1.5 border-gray-300 text-gray-600"
+                                onClick={cancelEditingProduct}
+                                disabled={savingProduct}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* ── Normal display row ── */
+                          <div className="flex items-start justify-between p-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-gray-900">{product.name}</h4>
+                                {product.sku && <Badge variant="outline" className="border-amber-300 text-amber-800">{product.sku}</Badge>}
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
+                              <div className="mt-2 flex items-center gap-4 text-sm">
+                                <span className="font-bold text-green-900">₱{product.price.toFixed(2)}</span>
+                                <span className="text-muted-foreground">per {product.unit}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => startEditingProduct(product)}
+                                className="text-green-700 hover:text-green-800 hover:bg-green-50"
+                                title="Edit product"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteProduct(product.id)}
+                                className="text-red-700 hover:text-red-800 hover:bg-red-50"
+                                title="Delete product"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(product.id)} className="text-red-700 hover:text-red-800 hover:bg-red-50">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
               </div>
               {productSearchQuery &&
                 products.filter((p) => {
